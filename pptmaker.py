@@ -40,7 +40,7 @@ def create_ppt(title, text_content):
     title_paragraph.alignment = PP_ALIGN.CENTER
     title_run = title_paragraph.runs[0]
     title_run.font.name = '맑은 고딕'
-    title_run.font.size = Pt(48)
+    title_run.font.size = Pt(54)
     title_run.font.color.rgb = RGBColor(255, 255, 255)
     title_run.font.bold = True
     
@@ -327,4 +327,5 @@ with st.sidebar:
     """)
     
     st.markdown("---")
+
     st.markdown("**문의**: jylee0005@gmail.com")
