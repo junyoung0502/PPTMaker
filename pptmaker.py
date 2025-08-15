@@ -189,7 +189,7 @@ def split_text_preview(text_content):
 
 # Streamlit 앱 설정
 st.set_page_config(
-    page_title="텍스트 to PPT 생성기",
+    page_title="Euodia lyrics PPT",
     page_icon="📊",
     layout="wide"
 )
@@ -330,3 +330,4 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown("**문의**: jylee0005@gmail.com")
+
