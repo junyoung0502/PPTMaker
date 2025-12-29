@@ -6,13 +6,22 @@ from pptx.dml.color import RGBColor
 import io
 import base64
 
-def create_ppt(title, text_content, font_name, font_size):
-    """텍스트를 분할하여 PPT 생성 (간단한 방식)"""
+def create_ppt(title, text_content, font_name, font_size, text_position, text_alignment):
+    """텍스트를 분할하여 PPT 생성 (위치 및 정렬 조절 가능)"""
     
+    # 함수 내 import는 유지 (사용자 코드 스타일 존중)
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.enum.text import PP_ALIGN
     from pptx.dml.color import RGBColor
+
+    # 정렬 매핑
+    align_map = {
+        "왼쪽": PP_ALIGN.LEFT,
+        "가운데": PP_ALIGN.CENTER,
+        "오른쪽": PP_ALIGN.RIGHT
+    }
+    ppt_align = align_map.get(text_alignment, PP_ALIGN.CENTER)
 
     # 새 프레젠테이션 생성
     prs = Presentation()
@@ -30,7 +39,7 @@ def create_ppt(title, text_content, font_name, font_size):
     fill.solid()
     fill.fore_color.rgb = RGBColor(0, 0, 0)
     
-    # 제목 텍스트박스
+    # 제목 텍스트박스 (제목은 항상 상단 중앙 유지)
     title_box = title_slide.shapes.add_textbox(
         Inches(1), Inches(1.5), Inches(11.33), Inches(2.5)
     )
@@ -44,8 +53,11 @@ def create_ppt(title, text_content, font_name, font_size):
     title_run.font.color.rgb = RGBColor(255, 255, 255)
     title_run.font.bold = True
     
-    # 텍스트를 슬라이드 단위로 분할 (간단한 방식)
+    # 텍스트를 슬라이드 단위로 분할
     slides_content = parse_text_to_slides(text_content)
+    
+    # 텍스트 Y 위치를 인치로 직접 사용
+    text_y_position = text_position
     
     # 각 슬라이드 생성
     for slide_text in slides_content:
@@ -57,14 +69,14 @@ def create_ppt(title, text_content, font_name, font_size):
             
             # 텍스트박스 추가
             textbox = slide.shapes.add_textbox(
-                Inches(1), Inches(0.5), Inches(11.33), Inches(3)
+                Inches(1), Inches(text_y_position), Inches(11.33), Inches(3)
             )
             text_frame = textbox.text_frame
             text_frame.text = slide_text
             
             # 텍스트 스타일 적용
             for paragraph in text_frame.paragraphs:
-                paragraph.alignment = PP_ALIGN.CENTER
+                paragraph.alignment = ppt_align  # 선택한 정렬 적용
                 for run in paragraph.runs:
                     run.font.name = font_name
                     run.font.size = Pt(font_size)
@@ -74,7 +86,7 @@ def create_ppt(title, text_content, font_name, font_size):
     return prs
 
 def parse_text_to_slides(text_content):
-    """텍스트를 슬라이드별로 분할하는 간단한 함수"""
+    """텍스트를 슬라이드별로 분할하는 함수"""
     lines = [line.strip() for line in text_content.split('\n') if line.strip()]
     slides = []
     current_slide = []
@@ -109,7 +121,7 @@ def get_ppt_download_link(prs, filename):
     return href
 
 def split_text_preview(text_content):
-    """텍스트를 분할하여 미리보기용 리스트 반환 (간단한 방식)"""
+    """텍스트를 분할하여 미리보기용 리스트 반환"""
     return parse_text_to_slides(text_content)
 
 # Streamlit 앱 설정
@@ -128,14 +140,10 @@ st.markdown("""
 ### 사용법
 1. **PPT 제목**을 입력하세요.
 2. **텍스트 내용**을 입력하세요.
-   - 기본적으로 두 줄씩 자동 분할됩니다.
-     (빈줄은 자동으로 무시합니다.)
-   - 한 줄만 넣고 싶으면 해당 줄 다음에 `---`를 입력하세요.
-   - 오류가 발생할 수 있으니 한번 더 확인 부탁드립니다.
-3. **폰트와 글자 크기**를 선택하세요.
-   - 글자 크기: 12~100
-4. **미리보기**를 확인하세요.
-5. **PPT 생성** 버튼을 눌러 다운로드하세요.
+   - 기본적으로 두 줄씩 자동 분할됩니다. (빈줄은 무시)
+   - 강제 분할 하려면 `---`를 입력하세요.
+3. **설정(폰트, 크기, 위치, 정렬)**을 조절하세요.
+4. **미리보기** 확인 후 **PPT 생성** 버튼을 누르세요.
 """)
 
 st.markdown("---")
@@ -206,44 +214,89 @@ with col2:
     selected_font_display = st.selectbox(
         "폰트 선택",
         list(font_options.keys()),
-        index=0,
-        help="사용할 폰트를 선택하세요"
+        index=0
     )
     
     selected_font = font_options[selected_font_display]
     
-    # 글자 크기 선택 방식
+    # 정렬 선택 (새로 추가된 부분)
+    st.markdown("**텍스트 정렬**")
+    alignment_option = st.radio(
+        "정렬 방식",
+        ["왼쪽", "가운데", "오른쪽"],
+        index=1,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    # 글자 크기 선택
+    st.markdown("**글자 크기 (pt)**")
     size_input_method = st.radio(
         "글자 크기 입력 방식",
         ["슬라이더", "직접 입력"],
         horizontal=True,
-        help="슬라이더 또는 직접 입력 중 선택하세요"
+        label_visibility="collapsed"
     )
     
     if size_input_method == "슬라이더":
         font_size = st.slider(
             "글자 크기 (pt)",
-            min_value=12,
-            max_value=100,
-            value=54,
-            step=2,
-            help="본문 글자 크기를 선택하세요 (제목은 자동으로 6pt 더 크게)"
+            min_value=12, max_value=100, value=54, step=2,
+            label_visibility="collapsed"
         )
     else:
         font_size = st.number_input(
             "글자 크기 (pt)",
-            min_value=12,
-            max_value=100,
-            value=54,
-            step=1,
-            help="본문 글자 크기를 직접 입력하세요 (제목은 자동으로 6pt 더 크게)"
+            min_value=12, max_value=100, value=54, step=1,
+            label_visibility="collapsed"
         )
     
+    # 텍스트 위치 선택
+    st.markdown("**텍스트 위치 (Y축)**")
+    position_input_method = st.radio(
+        "위치 입력 방식",
+        ["슬라이더", "직접 입력"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="pos_method"
+    )
+    
+    if position_input_method == "슬라이더":
+        text_position = st.slider(
+            "Y축 위치 (인치)",
+            min_value=0.0, max_value=6.0, value=0.5, step=0.1,
+            label_visibility="collapsed"
+        )
+    else:
+        text_position = st.number_input(
+            "Y축 위치 (인치)",
+            min_value=0.0, max_value=6.0, value=0.5, step=0.1,
+            label_visibility="collapsed"
+        )
+    
+    # 참고용 위치 가이드 및 버튼
+    col_top, col_center, col_bottom = st.columns(3)
+    with col_top:
+        if st.button("상단", use_container_width=True):
+            st.session_state.text_position = 0.5
+    with col_center:
+        if st.button("중앙", use_container_width=True):
+            st.session_state.text_position = 2.75
+    with col_bottom:
+        if st.button("하단", use_container_width=True):
+            st.session_state.text_position = 5.0
+            
+    if 'text_position' in st.session_state:
+        text_position = st.session_state.text_position
+
     st.markdown("---")
-    st.markdown("**현재 설정**")
-    st.write(f"**폰트**: {selected_font_display}")
-    st.write(f"**본문 크기**: {font_size}pt")
-    st.write(f"**제목 크기**: {font_size + 6}pt")
+    st.info(f"""
+    **설정 요약**
+    - 정렬: {alignment_option}
+    - 폰트: {selected_font_display}
+    - 크기: {font_size}pt
+    - 위치: {text_position}인치
+    """)
 
 with col3:
     st.subheader("👀 미리보기")
@@ -251,33 +304,39 @@ with col3:
     if text_content.strip():
         slides = split_text_preview(text_content)
         
-        st.info(f"총 {len(slides) + 1}개의 슬라이드가 생성됩니다 (제목 슬라이드 포함)")
+        st.info(f"총 {len(slides) + 1}개의 슬라이드 (제목 포함)")
         
-        # 제목 슬라이드 미리보기
+        # HTML CSS 정렬값 매핑
+        css_align_map = {"왼쪽": "left", "가운데": "center", "오른쪽": "right"}
+        css_align = css_align_map[alignment_option]
+
+        # 제목 슬라이드 미리보기 (제목은 항상 가운데)
         st.markdown("**슬라이드 1 (제목)**")
         st.markdown(f"""
-        <div style='background-color: black; color: white; padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 20px; font-family: {selected_font};'>
+        <div style='background-color: black; color: white; padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 20px; font-family: {selected_font}; height: 200px; display: flex; align-items: center; justify-content: center;'>
             <h2 style='color: white; margin: 0; font-size: {min(font_size + 6, 32)}px;'>{ppt_title}</h2>
         </div>
         """, unsafe_allow_html=True)
         
-        # 내용 슬라이드들 미리보기
+        # 위치 스타일 계산
+        position_percent = min((text_position / 6.0) * 80, 80)
+        position_style = f"padding-top: {position_percent}%; align-items: flex-start;"
+        
+        # 내용 슬라이드 미리보기
         for idx, slide_content in enumerate(slides, 2):
             st.markdown(f"**슬라이드 {idx}**")
             formatted_content = slide_content.replace('\n', '<br>')
-            preview_size = min(font_size * 0.4, 20)  # 미리보기용 크기 조정
+            preview_size = min(font_size * 0.4, 20)
+            
+            # CSS: text-align 속성을 동적으로 변경
             st.markdown(f"""
-            <div style='background-color: black; color: white; padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 15px; font-family: {selected_font};'>
-                <div style='font-size: {preview_size}px; line-height: 1.6; font-weight: bold;'>{formatted_content}</div>
+            <div style='background-color: black; color: white; border-radius: 10px; margin-bottom: 15px; font-family: {selected_font}; height: 200px; display: flex; justify-content: center; {position_style}'>
+                <div style='font-size: {preview_size}px; line-height: 1.6; font-weight: bold; text-align: {css_align}; width: 90%;'>
+                    {formatted_content}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
-        # # 디버깅 정보 (개발자용)
-        # with st.expander("🔍 분할 결과 확인 (디버깅용)"):
-        #     st.write("**원본 텍스트 줄 수:**", len([line for line in text_content.split('\n') if line.strip()]))
-        #     st.write("**생성된 슬라이드 수:**", len(slides))
-        #     for i, slide in enumerate(slides):
-        #         st.write(f"슬라이드 {i+2}: {repr(slide)}")  # repr로 줄바꿈 문자 확인
     else:
         st.warning("텍스트를 입력하면 미리보기가 표시됩니다.")
 
@@ -289,29 +348,20 @@ if st.button("🎯 PPT 생성 및 다운로드", type="primary", use_container_w
     else:
         with st.spinner('PPT를 생성하고 있습니다...'):
             try:
-                # PPT 생성
-                prs = create_ppt(ppt_title, text_content, selected_font, font_size)
+                # 함수에 alignment_option 전달
+                prs = create_ppt(ppt_title, text_content, selected_font, font_size, text_position, alignment_option)
                 
-                # 다운로드 링크 생성
                 filename = f"{ppt_title}.pptx"
                 download_link = get_ppt_download_link(prs, filename)
                 
                 st.success("PPT가 성공적으로 생성되었습니다!")
                 st.markdown(download_link, unsafe_allow_html=True)
                 
-                # 추가 정보
-                slides_count = len(split_text_preview(text_content)) + 1
-                st.info(f"✅ {slides_count}개의 슬라이드가 생성되었습니다.")
-                st.info(f"📝 폰트: {selected_font_display}, 크기: {font_size}pt")
-                
             except Exception as e:
                 st.error(f"PPT 생성 중 오류가 발생했습니다: {str(e)}")
 
-# 사이드바에 추가 정보
+# 사이드바
 with st.sidebar:
     st.header("도움말")
-    
     st.markdown("---")
     st.markdown("**문의**: jylee0005@gmail.com")
-    
-
